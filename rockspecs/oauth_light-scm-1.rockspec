@@ -2,7 +2,7 @@ package = "oauth_light"
 version = "scm-1"
 
 source = {
-    url = "https://github.com/darkstalker/oauth_light.git",
+    url = "git://github.com/darkstalker/oauth_light.git",
 }
 
 description = {
