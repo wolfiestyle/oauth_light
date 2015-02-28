@@ -173,7 +173,7 @@ local function build_request(method, url, args, config, multipart)
             headers["Content-Length"] = #body
             headers["Content-Type"] = "application/x-www-form-urlencoded"
         end
-    else
+    elseif next(request) ~= nil then
         local query = encode_pairs(request, url_encode)
         local s, e = url:find "%?[^#]*"
         if s then
