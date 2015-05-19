@@ -6,4 +6,4 @@ It provides a method for building signed OAuth requests, but it doesn't perform 
 ## Dependencies
 
 - lbase64
-- luacrypto
+- luaossl
