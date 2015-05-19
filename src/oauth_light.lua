@@ -2,10 +2,13 @@
 -- It provides a method for building signed OAuth requests, but it doesn't perform HTTP requests.
 -- Author: darkstalker <https://github.com/darkstalker>
 -- License: MIT/X11
-local assert, error, math_random, os_time, pairs, string_char, string_format, table_concat, table_sort, tonumber, tostring, type =
-      assert, error, math.random, os.time, pairs, string.char, string.format, table.concat, table.sort, tonumber, tostring, type
+local assert, error, os_time, pairs, string_char, string_format, table_concat, table_sort, tonumber, tostring, type =
+      assert, error, os.time, pairs, string.char, string.format, table.concat, table.sort, tonumber, tostring, type
 local base64 = require "base64"
-local crypto = require "crypto"
+local rand = require "openssl.rand"
+local hmac = require "openssl.hmac"
+local digest = require "openssl.digest"
+local pkey = require "openssl.pkey"
 
 local function url_encode(str)
     return str:gsub("[^%w%-._~]", function(chr)
@@ -27,6 +30,10 @@ end
 
 local function form_decode(str)
     return url_decode(str:gsub("+", " "))
+end
+
+local function to_hex(bin)
+    return ("%02x"):rep(#bin):format(bin:byte(1, -1))
 end
 
 local function encode_pairs(tbl, encoder)
@@ -97,14 +104,14 @@ local function sign_request(method, url, request, keys)
     local sig_method = request.oauth_signature_method
     local base_string
     if sig_method ~= "PLAINTEXT" then
-        request.oauth_nonce = crypto.digest("SHA1", request.oauth_timestamp .. tostring{} .. math_random(0, 32767))
+        request.oauth_nonce = to_hex(rand.bytes(20))
         base_string = signature_base_string(method, url, request)
     end
 
     if sig_method == "HMAC-SHA1" then
-        request.oauth_signature = base64.encode(crypto.hmac.digest("SHA1", base_string, signature_key(keys), true))
+        request.oauth_signature = base64.encode(hmac.new(signature_key(keys), "SHA1"):final(base_string))
     elseif sig_method == "RSA-SHA1" then
-        request.oauth_signature = base64.encode(crypto.sign("RSA-SHA1", base_string, crypto.pkey.from_pem(keys.rsa_priv, true)))
+        request.oauth_signature = base64.encode(pkey.new(keys.rsa_priv):sign(digest.new("RSA-SHA1"):update(base_string)))
     elseif sig_method == "PLAINTEXT" then
         request.oauth_signature = url_encode(signature_key(keys))
     else
