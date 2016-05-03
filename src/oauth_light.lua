@@ -160,7 +160,7 @@ local function build_request(method, url, args, config, content_type)
     }
 
     local raw_content = type(args) == "string"
-    if args and not raw_content then
+    if args and not custom_content then
         for k, v in pairs(args) do
             assert(type(k) == "string", "key must be string")
             request[k] = assert(convert_string(v))
