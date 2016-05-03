@@ -141,12 +141,14 @@ local function convert_string(x)
     return nil, "can't use " .. t .." as value"
 end
 
-local function build_request(method, url, args, config, multipart)
+local function build_request(method, url, args, config, content_type)
     assert(config.consumer_key and config.consumer_secret, "missing consumer key/secret")
+    content_type = content_type or "application/x-www-form-urlencoded"
+    local custom_content = content_type ~= "application/x-www-form-urlencoded"
     method = method:upper()
-    if multipart then
-        assert(method == "POST", "multipart requires POST")
-        assert(config.use_auth_header, "multipart requires auth header")
+    if custom_content then
+        assert(method == "POST", "custom content_type requires POST")
+        assert(config.use_auth_header, "custom content_type requires auth header")
     end
 
     local request = {
@@ -157,11 +159,16 @@ local function build_request(method, url, args, config, multipart)
         oauth_timestamp = tostring(os_time()),
     }
 
-    if args and not multipart then
+    local raw_content = type(args) == "string"
+    if args and not raw_content then
         for k, v in pairs(args) do
             assert(type(k) == "string", "key must be string")
             request[k] = assert(convert_string(v))
         end
+    end
+
+    if custom_content and raw_content and config.sig_method ~= "PLAINTEXT" then
+        request.oauth_body_hash = base64.encode(digest.new("SHA1"):final(args))
     end
 
     sign_request(method, url, request, config)
@@ -173,13 +180,16 @@ local function build_request(method, url, args, config, multipart)
 
     local body
     if method == "POST" then
-        if multipart then
-            body = args -- the user must build the multipart request
+        if custom_content then
+            body = args
+            if raw_content then
+                headers["Content-Length"] = #args
+            end
         else
             body = encode_pairs(request, form_encode)
             headers["Content-Length"] = #body
-            headers["Content-Type"] = "application/x-www-form-urlencoded"
         end
+        headers["Content-Type"] = content_type
     elseif next(request) ~= nil then
         local query = encode_pairs(request, url_encode)
         local s, e = url:find "%?[^#]*"
